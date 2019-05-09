@@ -42,9 +42,9 @@ goto MRNIE; YiQux: class Farm_Distribution { ...
 ``` python
 #coding: utf-8
 #python2.7
-//解析英文
+#解析英文
 print "\101\x63\143\x65\x73\163\x20\x64\145\156\151\x65\x64"
-//解析中文
+#解析中文
 print "\344\277\235\345\xad\230\xe6\x88\x90\345\x8a\x9f"
 ```
 
@@ -92,5 +92,58 @@ goto MRNIE;
 YiQux: class Farm_Distribution { ...
 ```
 
+##### 0x02 下面说说第二个goto特征，这个goto有点复杂
 
+. 首先研究一下 PHP 中goto 的运作原理
+
+```PHP
+<?php
+
+foo: goto coo;
+doo: echo "doo";
+coo: echo "coo";
+goto eoo;
+eoo:
+?>
+```
+执行结果就是
+> coo
+
+首先是标签 foo: 就算没人goto它，它一样也会被执行，所以 goto coo;被运行了
+
+其次 跳到coo标签后，打印完coo字符，程序流并不会回溯到 goto coo; 的后面
+
+而是接着在 echo "coo" 的后面接着执行 goto eoo; 了解这两点特性非常重要
+
+
+. 接着思考如何逆向 goto 的代码
+
+一个最简单的想法，就是文本替换，如下
+
+coo: echo "coo";goto eoo;    -- replace ->   goto coo;
+
+这里连带 goto eoo 很重要，根据上述PHP的goto 特点
+
+我们知道 echo "coo"；完了之后是执行 goto eoo的程序流
+
+有了这个思路，我们只需编写正则，分别匹配 label:(.\*?) 和 goto lable; 这两个正则来匹配整篇代码
+
+然后使用深度优先替换
+
+``` python
+labelList = re.findall(r"([a-zA-Z0-9_]{5}): ",srcCode);
+for labelName in labelList:
+    labelValue = re.findall(r""+labelName+": (.*?)\s+[a-zA-Z0-9_]{5}:", srcCode)[0];
+    srcCode.replace("goto "+labelName+";", labelValue);
+```
+上面指摘去了部分核心代码，运行结果如下
+``` PHP
+<?php
+defined("IN_IA") or exit("Access denied");
+!defined("ROOT_PATH") && define("ROOT_PATH", IA_ROOT . "/addons/kundian_farm/");
+include ROOT_PATH . "inc/web/function.inc.php";
+require_once ROOT_PATH . "model/common.php";
+require_once ROOT_PATH . "model/user.php";
+require_once ROOT_PATH . "model/notice.php";
+```
 
