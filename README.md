@@ -29,13 +29,13 @@ goto MRNIE; YiQux: class Farm_Distribution { ...
 
 ##### 0x01 先说说第2个特征，字符串编码的破解思路
 
-其实这个字符串编码严格意义都不算是什么加密手段，只不过把汉字或者ASCII符号转换成 8进制 或 16进制这两种数字编码
+其实这个字符串编码严格意义都不算是什么加密手段，只不过把汉字或者ASCII符号转换成 `8进制` 或 `16进制` 这两种数字编码
 
 仔细观察下面这一串，不难发现这一串有的是8进制编码，如 `\101`，有的是16进制编码如 `\x6f` ，也就是8进制和16进制的混合编码
 
 `\101\x63\143\x65\x73\163\x20\x64\145\156\151\x65\x64`
 
-对于这种编码，在 python 中直接黏贴就可以解析出对应的 ASCII 字符， 但如果是中文， python的交互式shell还直接解析不出来
+对于这种编码，在 python 中直接黏贴就可以解析出对应的 ASCII 字符， 但如果是中文， python 的交互式shell还直接解析不出来
 
 可以写 py 脚本头部加上 #coding:utf-8 然后一个最简单的反编码器就出来了
 
@@ -55,9 +55,9 @@ print "\344\277\235\345\xad\230\xe6\x88\x90\345\x8a\x9f"
 ``` python
 #将数字编码转成字符
 def changeStrcode(inpCode):
-    inpCode = re.sub(r"\\\\",r"\\",inpCode);
+    inpCode = re.sub(r"\\\\",r"\\",inpCode);  #如果是双斜杠，这替换成单斜杆
 
-    strlist = re.findall(r"\\\w{2,3}",inpCode);
+    strlist = re.findall(r"\\\d{2,3}",inpCode); #匹配2-3个数字，2个是16进制 3个是8进制
 
     for string in strlist:
         repStr = strdecode(string);
@@ -70,16 +70,16 @@ def strdecode(string):
     try:
         for i in strlist:
             if "x" in i:
-                num = int(i[1:],16);
+                num = int(i[1:],16);        #使用16进制解码
             else :
-                num = int(i,8);
+                num = int(i,8);             #使用8进制解码
             res += chr(num);
     except:
         pass
     return res;
 ```
 
-跑完上面两个函数，前面的明文也就变成了
+跑完上面两个函数，前面的明文也就变成了如下，是不是舒服了一点
 ``` PHP
 <?php
 goto xmr59; xmr59: defined("IN_IA") or exit("Access denied"); 
@@ -91,4 +91,6 @@ goto Tk8Vg; j7igX: require_once ROOT_PATH . "model/user.php";
 goto MRNIE; 
 YiQux: class Farm_Distribution { ...
 ```
+
+
 
