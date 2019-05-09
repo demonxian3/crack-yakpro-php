@@ -11,8 +11,10 @@ cracking PHP code obfuscation which using yarkpo method
   2. 编辑 `crack.py` 将顶部 `targetfn` 变量值改成 `yarkpro.php` 文件名
   3. 编辑 `crack.py` 将顶部 `forceTraining` 变量值改成 `True`
   4. 运行脚本 `python crack.py`，显示下面两个dump则表示训练成功
+  
      \> dump lbdata ok
      \> dump ifdata ok
+  
   5. 重新编辑 `crack.py` 将顶部  `forceTraining` 改为 `False`
   6. 运行脚本 `python crack.py f` 携带f参数表示生成破解框架文件，在当前目录会生成一个`inc.php`后缀的新文件
   7. 打开 inc.php 后缀的文件， 每个函数内容都有一个 goto xxxxx; (xxxxx 5个字母代表标签)
