@@ -6,10 +6,10 @@ import pickle
 
 
 #是否强制训练，不读取缓存数据
-forceTraining = False
+forceTraining = 0
 
 #目标文件名
-targetfn = "animal.php"
+targetfn = "land.php.enc"
 
 #普通标签缓存文件名
 lbdatafn = "lbdata.txt"
@@ -34,6 +34,8 @@ def changeStrcode(inpCode):
     for string in strlist:
         repStr = strdecode(string);
         inpCode = inpCode.replace(string, repStr);
+
+    inpCode = inpCode.replace("\n", "\\n");
     return inpCode;
 
 #单字符判断是八进制还是十六进制
@@ -91,8 +93,11 @@ def getLabel(content):
 
     labelList = re.findall(r"([a-zA-Z0-9_]{5}): ",content);
     for name in labelList:
+    
+        value = re.findall(r""+name+": (.*?)\s+\w{5}:", content);
 
-        value = re.findall(r""+name+": (.*?)\s+[a-zA-Z0-9_]{5}:", content);
+        if len(value) and "[{$" in value[0]:
+            value = re.findall(r""+name+": (.*?)\s+\w{5}:", content, re.S);
 
         #重新调整最后一个标签的正则
         if len(value) == 0:
@@ -107,7 +112,11 @@ def getLabel(content):
             value = removeGoto(value)
             labelDict[name]  = value;
         else:
-            value = re.findall(r""+name+": (if.*?{.*?}.*?goto \w{5};)", content);
+            #value = re.findall(r""+name+": (if \(.*?{\$.})", content);
+            value = re.findall(r""+name+": (if \(.*?\[{\$.}\"\]\) {.*?goto \w{5};.*?}.*?goto \w{5};)", content);
+            if value == []:
+                value = re.findall(r""+name+": (if.*?{.*?}.*?goto \w{5};)", content);
+
             if len(value) != 0:
                 labelIfDict[name] = value[0];
 
@@ -116,9 +125,9 @@ def getLabel(content):
 
 #训练普通标签
 def trainLabel(labelDict,labelIfDict):
-    for i in labelDict:
-        lbstr = labelDict[i];
-    
+    for lbidx in labelDict:
+        lbstr = labelDict[lbidx];
+
         while "goto" in lbstr:
             lbnxt = re.findall(r"goto (\w{5});", lbstr)[0];
     
@@ -133,7 +142,7 @@ def trainLabel(labelDict,labelIfDict):
     
             lbstr = lbstr.replace("goto "+lbnxt+";", rpstr);
     
-        labelDict[i] = lbstr;
+        labelDict[lbidx] = lbstr;
     return labelDict;
 
 
@@ -156,6 +165,7 @@ def trainIfLabel(labelDict,labelIfDict):
                 sys.exit();
     
             ifstr = ifstr.replace("goto "+lbnxt+";", rpstr);
+
     
         labelIfDict[ifidx] = ifstr;
 
@@ -201,8 +211,8 @@ if __name__ == "__main__":
         content = open(savedatafn, "r").read();
     else:
         content = open(targetfn).read();
-        content = changeStrcode(content);
         content = removeLabel(content);
+        content = changeStrcode(content);
         content = simpleFormat(content);
         content = content.replace("\n*", "\n");
         open(savedatafn,"w").write(content);
