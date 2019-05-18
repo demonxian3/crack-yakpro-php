@@ -6,10 +6,10 @@ import pickle
 
 
 #是否强制训练，不读取缓存数据
-forceTraining = 0
+forceTraining=0
 
 #目标文件名
-targetfn = "land.php.enc"
+targetfn = "api.php"
 
 #普通标签缓存文件名
 lbdatafn = "lbdata.txt"
@@ -48,7 +48,10 @@ def strdecode(string):
                 num = int(i[1:],16);
             else :
                 num = int(i,8);
+            #if num < 127:
             res += chr(num);
+            #else:
+            #    res += "\\x"+str(hex(num))[2:]
     except:
         pass
     return res;
@@ -173,6 +176,7 @@ def trainIfLabel(labelDict,labelIfDict):
 
 #格式化输出结果
 def formatRes(string):
+
     if ";" in string:
         string = string.replace(";",";\n");
 
@@ -190,11 +194,13 @@ def formatRes(string):
 def mktplFile(content):
     global labelDict;
 
-    topcode = re.findall(r".*?class", content)[0] + "\n";
-    topcode = labelDict[re.findall(r"goto (\w{5});",topcode)[0]];
-
     incres = "<?php\n\n";
-    incres += topcode.replace(";", ";\n");
+    topcode = re.findall(r".*?class", content)[0] + "\n";
+
+    if re.findall(r"goto (\w{5});",topcode):
+        topcode = labelDict[re.findall(r"goto (\w{5});",topcode)[0]];
+        incres += topcode.replace(";", ";\n");
+
     incres += re.findall(r"class.*?{", content)[0] + "\n";
 
     for func in re.findall(r"(public function.*?){", content):
@@ -214,7 +220,7 @@ if __name__ == "__main__":
         content = removeLabel(content);
         content = changeStrcode(content);
         content = simpleFormat(content);
-        content = content.replace("\n*", "\n");
+        content = content.replace("\n\n\n", "\n");
         open(savedatafn,"w").write(content);
     
 
