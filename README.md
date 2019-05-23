@@ -10,12 +10,17 @@ cracking PHP code obfuscation which using yarkpo method
   2. 运行脚本，如果加密php文件大的话需要耐心等一会，出现dump ok表示成功
   3. 打开脚本，修改第9行openCache = 1
   4. 生成解密模板文件
-  ` python crack.py f `
+  ``` bash
+  python crack.py f 
+  ```
   5. 打开加密脚本，找到第一个 goto 对应的标签，传给 crack.py 进行解码
-  ` python crack.py label `
+  ``` bash
+  python crack.py label 
+  ```
+  
   
 ## 太麻烦了？
-联系主人，有偿解密代码:  920248921@qq.com
+联系主人，有偿破解代码:  920248921@qq.com
   
   
  
