@@ -3,24 +3,17 @@ cracking PHP code obfuscation which using yarkpo method
 
 
 ## 环境说明：
-  脚本由Python2.7.15环境运行，并非全自动解码，需要半自动解码
+  脚本由Python2.7.15环境运行，并非全自动解码，需要结合手工
 
 ## 使用方法:
-  0. 这里假设要被破解的代码是 yakpro.php
-  1. 将 代码混淆文件 `yakpro.php` 和 `crack.py` 放在同一个目录上
-  2. 编辑 `crack.py` 将顶部 `targetfn` 变量值改成 `yarkpro.php` 文件名
-  3. 编辑 `crack.py` 将顶部 `forceTraining` 变量值改成 `True`
-  4. 运行脚本 `python crack.py`，显示下面两个dump则表示训练成功
+  1. 打开脚本，修改12行为加密的PHP文件名，修改第9行openCache = 0   
+  2. 运行脚本，如果加密php文件大的话需要耐心等一会，出现dump ok表示成功
+  3. 打开脚本，修改第9行openCache = 1
+  4. 生成解密模板文件
+  ` python crack.py f `
+  5. 打开加密脚本，找到第一个 goto 对应的标签，传给 crack.py 进行解码
+  ` python crack.py label `
   
-     \> dump lbdata ok
-     \> dump ifdata ok
-  
-  5. 重新编辑 `crack.py` 将顶部  `forceTraining` 改为 `False`
-  6. 运行脚本 `python crack.py f` 携带f参数表示生成破解框架文件，在当前目录会生成一个`inc.php`后缀的新文件
-  7. 打开 inc.php 后缀的文件， 每个函数内容都有一个 goto xxxxx; (xxxxx 5个字母代表标签)
-  8. 运行脚本 `python crack.py xxxxx` 携带标签运行，获取解析代码内容
-  9. 如果遇到 `/*if xxxxx */` 其中xxxxx也是代表标签， 复制标签传给 crack.py 代码运行即可
-  x. 重复执行 7-9 的步骤，直到没有 goto xxxxx; 关键字即可
   
  
 
