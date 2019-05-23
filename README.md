@@ -14,6 +14,9 @@ cracking PHP code obfuscation which using yarkpo method
   5. 打开加密脚本，找到第一个 goto 对应的标签，传给 crack.py 进行解码
   ` python crack.py label `
   
+## 太麻烦了？
+联系主人，有偿解密代码:  920248921@qq.com
+  
   
  
 
