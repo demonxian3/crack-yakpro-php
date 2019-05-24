@@ -3,13 +3,14 @@ import re
 import os
 import sys
 import pickle
+from optparse import OptionParser
 
 
 #是否开启缓存加快运行速度,重刷缓存请设置为0
-openCache = 0
+openCache = 1
 
 #目标文件名
-targetfn = "wxapp.php"
+targetfn = "test.php"
 
 #缓存数据文件名
 cachefn = "cache.txt"
@@ -18,9 +19,26 @@ cachefn = "cache.txt"
 savedatafn = "tmp.php"
 
 #目的破解模板文件
-tpldatafn = targetfn.split(".")[0] + ".inc.php"
+tpldatafn = targetfn.split(".")[0] + ".dec.php"
 
+#核心数据结构
+"""
+labelData:{
+    'type': labelType,
+    'dict': labelDict,
+}
 
+labelDict : {
+    'labe1': {value:'xxx', type:'if', access:True},
+    'labe2': {value:'xxx', type:'fe', access:False},
+}
+
+labelType : {
+    'if': [labe1, labe2],
+    'fe': [labe3, labe4],
+    'od': [labe5, labe6],
+}
+"""
 
 #将数字编码转成字符
 def changeStrcode(inpCode):
@@ -86,17 +104,19 @@ def simpleFormat(content):
 
 #导出标签键值
 def getLabel(content):
-    labelDict = {};
+    labelDict = { };
+    labelType = {
+        'od': [],
+        'if': [],
+        'fe': [],
+        'sw': []
+    };
 
     labelList = re.findall(r"([a-zA-Z0-9_]{5}): ",content);
     for name in labelList:
 
-    
         #获取所有标签对应的值;
         value = re.findall(r""+name+": (.*?)\s+\w{5}:", content);
-
-        if len(value) and "[{$" in value[0]:
-            value = re.findall(r""+name+": (.*?)\s+\w{5}:", content, re.S);
 
         #重新调整最后一个标签的正则
         if len(value) == 0:
@@ -109,6 +129,7 @@ def getLabel(content):
         i=30;
         #动态正则
         mlb = ".*?}";
+
 
         #收录foreach标签
         if "foreach " in value:
@@ -131,7 +152,39 @@ def getLabel(content):
                     firstGoto = gotoList[0];
                     value = prefix + '{' + firstGoto + '}' + lastGoto;
                 labelDict[name] = {'type':'fe', 'value':value, 'access':False};
+                labelType['fe'].append(name);
 
+        #收录switch
+        elif "switch (" in value :
+            while i>0:
+                i-=1;
+                value = re.findall(r""+name+": (switch .*?{"+mlb+".*?goto \w{5};)",content, re.S);
+                if value:
+                    rbraces = value[0].count("}");
+                    lbraces = value[0].count("{");
+                    if lbraces > rbraces:
+                        mlb = mlb + mlb * (lbraces - rbraces)
+                    elif lbraces == rbraces:
+                        break;
+
+            if len(value) != 0:
+                value = value[0].replace('\\n','');
+                lpos = value.find('{');
+                rpos = value.rfind('}');
+                inner = value[lpos:rpos];
+                prefix = value[:lpos];
+                caseList = re.findall(r"(case .*?goto \w{5};)", inner);
+
+                #default 情况复杂暂不处理
+                #defaList = re.findall(r"(default: .*?goto \w{5};)",value);
+                #if not defaList:
+                #    defaStr = '';
+                #else:
+                #    defaStr = defaList[0];
+
+                value = prefix + '{\n' + '\n'.join(caseList) + '\n}'
+                labelDict[name] = {'type':'sw', 'value':value, 'access':False};
+                labelType['sw'].append(name);
 
         #收录if标签
         elif "if " in value:
@@ -147,7 +200,14 @@ def getLabel(content):
 
             if len(value) != 0:
                 value = value[0].replace('\n','')
+                gotoList = re.findall(r"goto \w{5};", value);
+                if len(gotoList) > 1:
+                    prefix = value.split('{')[0];
+                    lastGoto = gotoList.pop();
+                    firstGoto = gotoList[0];
+                    value = prefix + '{' + firstGoto + '}' + lastGoto;
                 labelDict[name] = {'type':'if', 'value':value, 'access':False};
+                labelType['if'].append(name);
 
         #收录普通标签
         else:
@@ -156,48 +216,65 @@ def getLabel(content):
             if value and value[0] == '}':
                 value = '';
             labelDict[name] = {'type':'od', 'value':value, 'access':False};
+            labelType['od'].append(name);
 
-    #for i in labelDict:
-    #    if labelDict[i]['type'] == 'fe':
-    #        print i,labelDict[i]['type'],labelDict[i]['value']
-    #sys.exit();
-        
-    return labelDict;
-
-
-#训练普通标签
-def trainLabel(labelDict):
-    #训练普通标签
-    for lbidx in labelDict:
-        lbvalue = labelDict[lbidx]['value'];
+    labelData = {
+       'dict': labelDict,
+       'type': labelType,
+    }
+    return labelData;
 
 
-        while "goto" in lbvalue:
-            lbnxt = re.findall(r"goto (\w{5});", lbvalue)[0];
-            lbtype = labelDict[lbnxt]['type'];
+#训练各类标签
+def trainLabel(labelData):
 
-            if lbtype == 'fe':
-                rpstr = "/*foreach "+lbnxt+" */\n";
-                if not labelDict[lbnxt]['access']:
-                    rpstr += labelDict[lbnxt]['value'];
+    labelDict = labelData['dict'];
+    labelType = labelData['type'];
 
-            elif lbtype == 'if':
-                rpstr = "/*if "+lbnxt+" */\n";
-                if not labelDict[lbnxt]['access']:
-                    rpstr += labelDict[lbnxt]['value'];
+    def train(dictType):
+        for lbidx in labelType[dictType]:
+            lbvalue = labelDict[lbidx]['value'];
 
-            elif lbtype == 'od':
-                rpstr = labelDict[lbnxt]['value'];
+            while "goto" in lbvalue:
+                lbnxt = re.findall(r"goto (\w{5});", lbvalue)[0];
+                lbtype = labelDict[lbnxt]['type'];
 
-            else:
-                print "UNKNOW TYPE"
-                sys.exit();
+                if lbtype == 'fe':
+                    rpstr = "/*foreach "+lbnxt+" */\n";
+                    if not labelDict[lbnxt]['access']:
+                        labelDict[lbnxt]['access'] = True;
+                        rpstr += labelDict[lbnxt]['value'];
 
-            labelDict[lbnxt]['access'] = True;
-            lbvalue = lbvalue.replace("goto "+lbnxt+";", rpstr);
+                elif lbtype == 'sw':
+                    rpstr = "/*switch "+lbnxt+" */\n";
+                    if not labelDict[lbnxt]['access']:
+                        labelDict[lbnxt]['access'] = True;
+                        rpstr += labelDict[lbnxt]['value'];
 
-        labelDict[lbidx]['value'] = lbvalue;
-    return labelDict
+                elif lbtype == 'if':
+                    rpstr = "/*if "+lbnxt+" */\n";
+                    if not labelDict[lbnxt]['access']:
+                        labelDict[lbnxt]['access'] = True;
+                        rpstr += labelDict[lbnxt]['value'];
+
+                elif lbtype == 'od':
+                    rpstr = labelDict[lbnxt]['value'];
+
+                else:
+                    print "UNKNOW TYPE"
+                    sys.exit();
+
+                lbvalue = lbvalue.replace("goto "+lbnxt+";", rpstr);
+
+            labelDict[lbidx]['value'] = lbvalue;
+    
+
+    train('od');
+    train('if');
+    train('fe');
+    train('sw');
+
+    return {'type':labelType, 'dict':labelDict};
 
     
 #格式化输出结果
@@ -224,7 +301,7 @@ def mktplFile(content):
     topcode = re.findall(r".*?class", content)[0] + "\n";
 
     if re.findall(r"goto (\w{5});",topcode):
-        topcode = labelDict[re.findall(r"goto (\w{5});",topcode)[0]];
+        topcode = labelDict[re.findall(r"goto (\w{5});",topcode)[0]]['value'];
         incres += topcode.replace(";", ";\n");
 
     incres += re.findall(r"class.*?{", content)[0] + "\n";
@@ -240,6 +317,31 @@ def mktplFile(content):
 
 #main
 if __name__ == "__main__":
+    usage = "Usage: %prog ";
+
+    parser = OptionParser(usage=usage);
+
+    parser.add_option('-o','--cache', action='store_true', dest='openCache');
+    parser.add_option('-f','--mktplfile',action='store_true', dest='mktplfile');
+    parser.add_option('-c','--cachefn', type='string', dest='cachefn');
+    parser.add_option('-t','--target', type='string', dest='targetfn');
+    parser.add_option('-s','--savedatafn', type='string', dest='savedatafn');
+
+    (options, args) = parser.parse_args();
+    #print options;
+
+    if options.openCache:
+        openCache = 0;
+
+    if options.targetfn:
+        targetfn = options.targetfn;
+
+    if options.cachefn:
+        cachefn = options.cachefn;
+
+    if options.savedatafn:
+        savedatafn = options.savedatafn;
+
 
     if openCache:
         if not os.path.exists(savedatafn):
@@ -251,7 +353,7 @@ if __name__ == "__main__":
             sys.exit();
 
         content = open(savedatafn, 'r').read();
-        labelDict = pickle.loads(open(cachefn,'r').read());
+        labelData = pickle.loads(open(cachefn,'r').read());
         
     else:
         content = open(targetfn).read();
@@ -261,26 +363,15 @@ if __name__ == "__main__":
         content = content.replace("\n\n\n", "\n");
         open(savedatafn,"w").write(content);
         print "dump content ok";
-        labelDict = getLabel(content);
-        labelDict = trainLabel(labelDict);
-        open(cachefn,"w").write(pickle.dumps(labelDict));
-        print "dump labelDict ok"
+        labelData = getLabel(content);
+        labelData = trainLabel(labelData);
+        open(cachefn,"w").write(pickle.dumps(labelData));
+        print "dump labelData ok"
     
 
+    if options.mktplfile:
+        mktplFile(content);
+    elif len(args)>0:
+        label = args[0]
+        formatRes(labelData['dict'][label]['value']);
 
-    
-    #[main]
-    if len(sys.argv) > 1:
-        p1 = sys.argv[1];
-
-        if p1 == "c":
-            print content;
-
-        elif p1 == "f":
-            mktplFile(content);
-
-        else:
-            try:
-                formatRes(labelDict[p1]['value']);
-            except:
-                print 'error'
