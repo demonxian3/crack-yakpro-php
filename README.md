@@ -3,29 +3,71 @@ cracking PHP code obfuscation which using yarkpo method
 
 
 ## 环境说明：
-  脚本由Python2.7.15环境运行，并非全自动解码，需要结合手工
+  脚本由Python2.7.15环境运行，并非全自动解码，需要结合手工排版和逻辑等效替换
 
 ## 使用方法:
-  1. 打开脚本，修改12行为加密的PHP文件名，修改第9行openCache = 0   
-  2. 运行脚本，如果加密php文件大的话需要耐心等一会，出现dump ok表示成功
-  3. 打开脚本，修改第9行openCache = 1
-  4. 生成解密模板文件
+  1. 生成缓存文件（必须）:
   ``` bash
-  python crack.py f 
+  python crack.py -t your_encode_file.php -o
   ```
-  5. 打开加密脚本，找到第一个 goto 对应的标签，传给 crack.py 进行解码
+  your_encode_file 改为你的加密文件名，需要放在同一目录下，生成缓存文件名这一步很关键，后面的命令
+  都依赖此条，请务必先执行，如果文件大的话，计算时间也会比较久，请耐心等待，生成一次后，就无需在执行
+  此命令了。一次生成，无限使用
+  
+  2. 生成破解模板文件(可选):
+  ```
+  python crack.py -f
+  ```
+  执行后本地会生成 你的文件名.dec.php 的文件模板，可以打开看看
+  
+  3. 破解标签（核心）
+  
+  > 打开php代码，找到你想破解的块，然后复制第一个goto 如:
+  
+  ``` php
+  public function xxx{ goto abcde; ...后面省略n个字}
+  ```
+  > 复制如上 abcde标签，到命令行进行代码解码
   ``` bash
-  python crack.py label 
+  python crack.py abcde
+  ```
+  > 然后就会返回破解后的结果，结果看起来有点怪，需要第四步手工排版和逻辑等效替换调整一下
+  
+  4. 逻辑等效替换
+  破解的代码中会经常看到如下形式
+  
+  ```php
+  /*if epAfl */
+  if (!($uid < 1)) {
+  $card_id = intval($_GPC["card_id"]);
+  /*if m0FKM */
+
+  }
+  return $this->result(1, "非法进入");
+  gs0uX: $card_id = intval($_GPC["card_id"]);
+  /*if m0FKM */
   ```
   
+  其中 /\*if xxxxx \*/ 表示下一行代码的标签 xxxxx 会是一个if判断语句，之所以不采用全自动替换if代码
+  是因为 yakpro 加密方法将 while 循环使用 if 替换了， 自动替换会导致解码工具死循环输出
   
+  所谓等效替换就是，尽可能让代码量变少，以还原出最有可能性的代码，上面的PHP就可以等效替换成如下
+  ```php
+  if ($uid < 1) {
+     return $this->result(1, "非法进入");
+  }
+  $card_id = intval($_GPC["card_id"]);
+  /*if m0FKM */
+  ```
+  类似的还有很多，此处不一一举例了
+  
+
+
+
 ## 太麻烦了？
 联系主人，有偿破解代码:  920248921@qq.com
-  
-  
+   
  
-
-
 
 ## 破解思路: 
 
