@@ -1,5 +1,6 @@
 # crack-yakpro-po
-cracking PHP code obfuscation which using yarkpo method
+破解由  yakpro 混淆PHP代码的手段
+cracking PHP code obfuscation which using yakpro method
 
 
 ## 环境说明：
