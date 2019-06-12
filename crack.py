@@ -3,8 +3,13 @@ import re
 import os
 import sys
 import pickle
+import pyperclip
+reload(sys);
+sys.setdefaultencoding('utf8');
 from optparse import OptionParser
 
+#复制剪切板
+#if模板
 
 #是否开启缓存加快运行速度,重刷缓存请设置为0
 openCache = 1
@@ -93,7 +98,7 @@ def removeGoto(value):
 
 #简单排版
 def simpleFormat(content):
-    for key in re.findall(r"\w{5}: if",content):
+    for key in re.findall(r"\w{5}: ",content):
         content = content.replace(key, "\n"+key);
     for pub in re.findall(r"public function",content):
         content = content.replace(pub, "\n"+pub);
@@ -116,7 +121,7 @@ def getLabel(content):
     for name in labelList:
 
         #获取所有标签对应的值;
-        value = re.findall(r""+name+": (.*?)\s+\w{5}:", content);
+        value = re.findall(r""+name+":\s+(.*?)\s+\w{5}:", content);
 
         #重新调整最后一个标签的正则
         if len(value) == 0:
@@ -276,6 +281,35 @@ def trainLabel(labelData):
 
     return {'type':labelType, 'dict':labelDict};
 
+#交换条件if
+def switchIf(labelData):
+    for iflb in labelData['type']['if']:
+
+        ifvl = labelData['dict'][iflb]['value'];
+
+        condition = re.findall(r"if \(!(\(.*?\))\)", ifvl);
+
+        if condition:
+
+            gotoList = re.findall(r"(goto \w{5};)", ifvl);
+
+            if len(gotoList) == 2:
+
+                newifvl = 'if '+ condition[0] + '{ ' + gotoList[1] + ' } ' + gotoList[0];
+                labelData['dict'][iflb]['value'] = newifvl;
+
+    return labelData;
+
+#去除return 后面的goto
+def returnRm(labelData):
+    for odlb in labelData['type']['od']:
+        odvl = labelData['dict'][odlb]['value'];
+
+        rtncode = re.findall(r"(return .*?;)",odvl);
+        if rtncode:
+            labelData['dict'][odlb]['value'] = rtncode[0];
+
+    return labelData;
     
 #格式化输出结果
 def formatRes(string):
@@ -289,13 +323,17 @@ def formatRes(string):
     if "}" in string:
         string = string.replace("}","\n}\n");
 
+    res = ""
+
     for s in string.split("\n"):
-        print s.strip();
+        res += s.strip() + "\n";
+
+    print res;
+    pyperclip.copy(res.encode("utf-8"));
 
 
 #生成手工破解框架文件
-def mktplFile(content):
-    global labelDict;
+def mktplFile(content, labelDict):
 
     incres = "<?php\n\n";
     topcode = re.findall(r".*?class", content)[0] + "\n";
@@ -342,7 +380,6 @@ if __name__ == "__main__":
     if options.savedatafn:
         savedatafn = options.savedatafn;
 
-
     if openCache:
         if not os.path.exists(savedatafn):
             print savedatafn + 'is not found';
@@ -361,16 +398,19 @@ if __name__ == "__main__":
         content = changeStrcode(content);
         content = simpleFormat(content);
         content = content.replace("\n\n\n", "\n");
+
         open(savedatafn,"w").write(content);
         print "dump content ok";
         labelData = getLabel(content);
+        labelData = switchIf(labelData);
+        labelData = returnRm(labelData);
         labelData = trainLabel(labelData);
         open(cachefn,"w").write(pickle.dumps(labelData));
-        print "dump labelData ok"
+        print "dump labelData ok";
     
 
     if options.mktplfile:
-        mktplFile(content);
+        mktplFile(content,labelData['dict']);
     elif len(args)>0:
         label = args[0]
         formatRes(labelData['dict'][label]['value']);
