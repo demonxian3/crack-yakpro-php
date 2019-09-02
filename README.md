@@ -1,12 +1,51 @@
-# crack-yakpro-po
-破解由  yakpro 混淆PHP代码的手段
-cracking PHP code obfuscation which using yakpro method
+# crack-yakpro-po    
+破解由 `YAK Pro - Php Obfuscator` 混淆PHP代码的手段    
 
+## 说明   
 
-## 环境说明：
-  脚本由Python2.7.15环境运行，并非全自动解码，需要结合手工排版和逻辑等效替换
+本脚本执行恢复还原度80%，剩下20%可手工还原，如:排版和逻辑等效替换，非全自动破解
+
+## 环境
+
+``` 
+Windows 系统
+Python2.7.x
+```
+
+## 依赖
+
+``` sh
+pip install pickle
+pip install pyperclip
+pip install optparse
+```
+
+## 命令
+
+```
+[USAGE]
+python crack.py [options]
+
+[OPTION]
+-s --savedatafn <filename>  #指定临时文件名，该临时文件存储临时态的代码数据
+-o --cache                  #是否关闭读取缓存，第一次使用必须关闭，每次指明则会重新训练数据
+-f --mktplfile              #生成破解模板文件
+-c --cachefn    <filename>  #指定缓存保存的文件，该缓存文件存储了序列化训练好的数据
+-t --target     <filename>  #指定需要破解的文件，该文件被 Yak Pro 混淆说加密
+
+```
+
+## 解释
+
+crack.py 的代码可读性比较差，编写的时候注意力全放在如何将代码混淆的还原度和效率提高，减少人工成本
+
+所以没遵守任何编码规范，逻辑也看起来比较乱几乎很难一眼读懂。最底下有对破解的思路简单说明，如果有想
+
+把代码完善度和可读性进行化优化或者重构想法的朋友可以联系我交流交流: 920248921@qq.com
+
 
 ## 使用方法:
+
   1. 生成缓存文件（必须）:
   ``` bash
   python crack.py -t your_encode_file.php -o
@@ -15,11 +54,13 @@ cracking PHP code obfuscation which using yakpro method
   都依赖此条，请务必先执行，如果文件大的话，计算时间也会比较久，请耐心等待，生成一次后，就无需在执行
   此命令了。一次生成，无限使用
   
+  
   2. 生成破解模板文件(可选):
   ```
   python crack.py -f
   ```
   执行后本地会生成 你的文件名.dec.php 的文件模板，可以打开看看
+  
   
   3. 破解标签（核心）
   
@@ -33,6 +74,7 @@ cracking PHP code obfuscation which using yakpro method
   python crack.py abcde
   ```
   > 然后就会返回破解后的结果，结果看起来有点怪，需要第四步手工排版和逻辑等效替换调整一下
+  
   
   4. 逻辑等效替换
   破解的代码中会经常看到如下形式
@@ -158,7 +200,9 @@ goto MRNIE;
 YiQux: class Farm_Distribution { ...
 ```
 
-##### 0x02 下面说说第二个goto特征，这个goto有点复杂
+##### 0x02 下面说说第二个goto特征
+
+现在流行的编程语言基本不会再用goto了，goto越多代码越乱
 
 . 首先研究一下 PHP 中goto 的运作原理
 
@@ -175,26 +219,18 @@ eoo:
 执行结果就是
 > coo
 
-首先是标签 foo: 就算没人goto它，它一样也会被执行，所以 goto coo;被运行了
+其中的执行顺序：
+1. goto coo;
+2. echo 'coo';
+3. goto eoo;
 
-其次 跳到coo标签后，打印完coo字符，程序流并不会回溯到 goto coo; 的后面
 
-而是接着在 echo "coo" 的后面接着执行 goto eoo; 了解这两点特性非常重要
+两个特点：
+1. 执行到标签时，标签身后代码会被执行，不一定非要goto才触发
+2. goto 跳过去后就算执行完了所有代码不会回溯之前的位置，除非是用goto跳回来的
 
 
-. 接着思考如何逆向 goto 的代码
-
-一个最简单的想法，就是文本替换，如下
-
-coo: echo "coo";goto eoo;    -- replace ->   goto coo;
-
-这里连带 goto eoo 很重要，根据上述PHP的goto 特点
-
-我们知道 echo "coo"；完了之后是执行 goto eoo的程序流
-
-有了这个思路，我们只需编写正则，分别匹配 label:(.\*?) 和 goto lable; 这两个正则来匹配整篇代码
-
-然后使用深度优先替换
+然后使用深度优先替换： 见到一个goto就替换一个
 
 ``` python
 labelList = re.findall(r"([a-zA-Z0-9_]{5}): ",srcCode);
@@ -202,6 +238,7 @@ for labelName in labelList:
     labelValue = re.findall(r""+labelName+": (.*?)\s+[a-zA-Z0-9_]{5}:", srcCode)[0];
     srcCode.replace("goto "+labelName+";", labelValue);
 ```
+
 上面指摘去了部分核心代码，运行结果如下
 ``` PHP
 <?php
